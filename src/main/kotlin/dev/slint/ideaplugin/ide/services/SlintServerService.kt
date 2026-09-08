@@ -2,6 +2,7 @@ package dev.slint.ideaplugin.ide.services
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerManager
 import com.intellij.platform.lsp.api.LspServerState
@@ -17,7 +18,7 @@ class SlintServerService(private val project: Project) {
     }
 
     fun previewComponent(path: String, component: String) {
-        val server = getActiveServer() ?: return
+        val server = getActiveServer(path) ?: return
 
         server.sendRequestSync(2_000) {
             it.workspaceService.executeCommand(
@@ -29,10 +30,12 @@ class SlintServerService(private val project: Project) {
         }
     }
 
-    private fun getActiveServer(): LspServer? {
+    private fun getActiveServer(path: String): LspServer? {
         val servers = LspServerManager.getInstance(project)
             .getServersForProvider(SlintLspServerSupportProvider::class.java)
 
-        return servers.firstOrNull { it.state == LspServerState.Running }
+        val localPath = if (path.startsWith("file:")) java.nio.file.Path.of(java.net.URI(path)).toString() else path
+        val file = LocalFileSystem.getInstance().findFileByPath(localPath.replace('\\', '/')) ?: return null
+        return servers.singleOrNull { it.state == LspServerState.Running && it.descriptor.isSupportedFile(file) }
     }
 }

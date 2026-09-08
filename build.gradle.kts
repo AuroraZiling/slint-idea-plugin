@@ -55,6 +55,16 @@ java {
 }
 
 repositories {
+    providers.gradleProperty("verificationMavenRepository").orNull?.let { mirror ->
+        exclusiveContent {
+            forRepository { maven { url = uri(mirror) } }
+            filter { includeModule("com.jetbrains.intellij.platform", "build-scripts-downloader") }
+        }
+    }
+    exclusiveContent {
+        forRepository { maven { url = uri("https://repo.maven.apache.org/maven2") } }
+        filter { includeGroup("org.jetbrains.kotlin") }
+    }
     mavenCentral()
     intellijPlatform {
         defaultRepositories()
@@ -69,8 +79,8 @@ changelog {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     intellijPlatform {
-        intellijIdea(properties("platformVersion"))
-        bundledPlugin("com.intellij.java")
+        val localIde = providers.gradleProperty("localIdePath").orNull
+        if (localIde != null) local(localIde) else rustRover(properties("platformVersion"))
         plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
         testFramework(TestFrameworkType.Platform)
     }
@@ -88,6 +98,9 @@ intellijPlatform {
     }
 
     pluginVerification {
+        ides {
+            providers.gradleProperty("localIdePath").orNull?.let { local(it) }
+        }
         failureLevel.set(
             listOf(
                 VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
@@ -99,6 +112,12 @@ intellijPlatform {
 }
 
 tasks {
+    val buildCargoLibraryAnalyzer by registering(Exec::class) {
+        workingDir("native/cargo-libraries")
+        commandLine("cargo", "build", "--release", "--locked")
+        inputs.files(fileTree("native/cargo-libraries/src"), file("native/cargo-libraries/Cargo.toml"), file("native/cargo-libraries/Cargo.lock"))
+        outputs.file("native/cargo-libraries/target/release/slint-cargo-libraries.exe")
+    }
     generateLexer {
         sourceFile = file("src/main/grammars/SlintLexer.flex")
         targetOutputDir = file("src/gen/dev/slint/ideaplugin/lang/lexer")
@@ -172,6 +191,7 @@ tasks {
     }
 
     register<Download>("downloadSlintLspVscodePlugin") {
+        onlyIf { !providers.gradleProperty("bundledLspDirectory").isPresent }
         description = "Downloads the Slint LSP binary from the remote repository"
         src("https://Slint.gallery.vsassets.io/_apis/public/gallery/publisher/Slint/extension/slint/${slintLspVersion}/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage")
         dest("${layout.buildDirectory.asFile.get()}/tmp/slint-${slintLspVersion}-vscode-plugin.zip")
@@ -180,6 +200,7 @@ tasks {
     }
 
     register<Copy>("extractSlintLspVscodePlugin") {
+        onlyIf { !providers.gradleProperty("bundledLspDirectory").isPresent }
         description = ""
         dependsOn("downloadSlintLspVscodePlugin")
         from(zipTree("${layout.buildDirectory.asFile.get()}/tmp/slint-${slintLspVersion}-vscode-plugin.zip")) {
@@ -188,8 +209,15 @@ tasks {
     }
 
     prepareSandbox {
-        dependsOn("extractSlintLspVscodePlugin")
-        from("${layout.buildDirectory.asFile.get()}/tmp/slint-vscode-plugin/extension/bin") {
+        dependsOn(buildCargoLibraryAnalyzer)
+        from("native/cargo-libraries/target/release/slint-cargo-libraries.exe") {
+            into("${pluginName.get()}/cargo-libraries")
+        }
+        from("native/cargo-libraries/licenses") { into("${pluginName.get()}/cargo-libraries/licenses") }
+        from("LICENSE") { into(pluginName.get()) }
+        if (!providers.gradleProperty("bundledLspDirectory").isPresent) dependsOn("extractSlintLspVscodePlugin")
+        from(providers.gradleProperty("bundledLspDirectory").orElse("${layout.buildDirectory.asFile.get()}/tmp/slint-vscode-plugin/extension/bin")) {
+            include("slint-lsp-*-pc-windows-msvc.exe")
             into("${pluginName.get()}/language-server/bin")
         }
 //        Disabled before planned development
@@ -200,5 +228,9 @@ tasks {
 //        from("${project.projectDir}/src/main/resources/wasmPreview/index.html") {
 //            into("${pluginName.get()}/language-server/wasm")
 //        }
+    }
+    test {
+        dependsOn(buildCargoLibraryAnalyzer)
+        inputs.property("cargoIntegrationProject", providers.environmentVariable("SLINT_CARGO_TEST_PROJECT").orElse("fixture"))
     }
 }

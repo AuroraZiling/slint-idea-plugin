@@ -1,10 +1,8 @@
 package dev.slint.ideaplugin.ide.lsp
 
 import com.intellij.execution.configurations.GeneralCommandLine
-import com.intellij.ide.plugins.PluginManager
-import com.intellij.openapi.application.PathManager
-import com.intellij.openapi.application.PluginPathManager
-import com.intellij.openapi.extensions.PluginId
+import com.intellij.openapi.extensions.PluginDescriptor
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.util.system.CpuArch
 import dev.slint.ideaplugin.ide.settings.SlintBackend
@@ -17,21 +15,14 @@ import kotlin.io.path.isExecutable
 import kotlin.io.path.setPosixFilePermissions
 
 object CommandLineHandler {
-    fun createCommandLine(): GeneralCommandLine {
-        val settingState = SlintSettingsState.getInstance().lspSettings
+    @Volatile private var installationPath: Path? = null
 
-        val parameters = mutableListOf<String>()
-        if (settingState.args.isNotEmpty()) {
-            val args = settingState.args.split("\\s+".toRegex())
-            parameters.addAll(args)
-        }
+    fun bindPlugin(descriptor: PluginDescriptor) { installationPath = descriptor.pluginPath }
+    fun createCommandLine(project: Project, libraries: Map<String, String> = emptyMap()): GeneralCommandLine {
+        val settingState = SlintSettingsState.getInstance(project).lspSettings
 
-        if (settingState.includePaths.isNotEmpty()) {
-            parameters.add("-I")
-            settingState.includePaths.forEach {
-                parameters.add("'${it}'")
-            }
-        }
+        val parameters = LibraryArguments.merge(settingState.args, settingState.includePaths,
+            libraries, settingState.libraryOverrides).arguments.toMutableList()
 
         if (settingState.backend != SlintBackend.DEFAULT) {
             parameters.add("--backend")
@@ -80,13 +71,11 @@ object CommandLineHandler {
             return null
         }
         
-        val lspPath = PathManager
-            .getPluginsDir()
-            .resolve("slint-idea-plugin")
+        val lspPath = pluginPath()
             .resolve("language-server/bin")
             .resolve(programName)
 
-        if (!lspPath.isExecutable()) {
+        if (!SystemInfo.isWindows && !lspPath.isExecutable()) {
             lspPath.setPosixFilePermissions(
                 lspPath.getPosixFilePermissions()
                     .plus(PosixFilePermission.OWNER_EXECUTE)
@@ -94,5 +83,9 @@ object CommandLineHandler {
         }
 
         return lspPath
+    }
+
+    fun pluginPath(): Path = requireNotNull(installationPath) {
+        "Slint plugin installation is unavailable"
     }
 }

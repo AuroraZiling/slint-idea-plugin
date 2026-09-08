@@ -1,0 +1,7 @@
+[workspace]
+members = ["app", "other", "shapes"]
+resolver = "2"
+
+[workspace.dependencies]
+slint-build = "=1.17.1"
+serde_json = "1"

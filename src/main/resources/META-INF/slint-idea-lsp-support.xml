@@ -1,5 +1,6 @@
 <idea-plugin>
     <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="dev.slint.ideaplugin.ide.cargo.CargoLibraryStartup"/>
         <!-- LSP -->
         <platform.lsp.serverSupportProvider implementation="dev.slint.ideaplugin.ide.lsp.SlintLspServerSupportProvider"/>
     </extensions>

@@ -1,6 +1,6 @@
 package dev.slint.ideaplugin.ide.settings
 
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -16,8 +16,8 @@ class SlintSettingsState : PersistentStateComponent<SlintSettingsState> {
     var lspSettings: SlintLspSettings = SlintLspSettings()
 
     companion object {
-        fun getInstance(): SlintSettingsState {
-            return ApplicationManager.getApplication().getService(SlintSettingsState::class.java)
+        fun getInstance(project: Project): SlintSettingsState {
+            return project.getService(SlintSettingsState::class.java)
         }
     }
 

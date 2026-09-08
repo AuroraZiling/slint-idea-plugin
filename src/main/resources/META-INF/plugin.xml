@@ -11,7 +11,8 @@
     <vendor email="kizeev.ov@gmail.com" url="https://github.com/kizeevov/slint-idea-plugin">kizeev</vendor>
     <resource-bundle>messages.SlintBundle</resource-bundle>
 
-    <depends optional="true" config-file="slint-idea-lsp-support.xml">com.intellij.modules.ultimate</depends>
+    <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="slint-idea-lsp-support.xml">com.intellij.modules.lsp</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Language -->

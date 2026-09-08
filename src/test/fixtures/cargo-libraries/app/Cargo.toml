@@ -1,0 +1,10 @@
+[package]
+name = "cargo-library-fixture"
+version = "0.1.0"
+edition = "2021"
+
+[build-dependencies]
+slint-build.workspace = true
+serde_json.workspace = true
+lucide-slint = "=1.42.0"
+renamed_shapes = { package = "fixture-shapes", path = "../shapes" }

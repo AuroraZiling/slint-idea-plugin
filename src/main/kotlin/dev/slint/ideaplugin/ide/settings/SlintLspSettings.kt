@@ -10,7 +10,9 @@ data class SlintLspSettings(
     var noToolbar: Boolean = false,
     var includePaths: MutableList<String> = mutableListOf(),
     var useExternalLsp: Boolean = false,
-    var providedByEditor: Boolean = false
+    var providedByEditor: Boolean = false,
+    var discoverCargoLibraries: Boolean = true,
+    var libraryOverrides: MutableMap<String, String> = linkedMapOf()
 )
 
 enum class SlintStyle {
